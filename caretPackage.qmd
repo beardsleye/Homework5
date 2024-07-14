@@ -9,3 +9,63 @@ format: html
 3. A general linear model is used for a continuous response that allows for both continuous and categorical predictors.
 4. Allowing an interaction term allows for relationships between variables to be accounted for in the model.
 5. We split our data into the train and test set to properly fit our model. The training set is for fitting the model, where the test set is to test the performance of the fit.
+
+# Task 2
+```{r}
+library(readr)
+library(tidyverse)
+library(psych)
+library(caret)
+
+heart <- read_csv("C:/Users/beard/Downloads/heart.csv")
+heart_df<-as_tibble(heart) |>
+  mutate( ,HeartDisease = as.character(HeartDisease))
+heart_df
+
+na_counts<- colSums(is.na(heart_df))
+na_counts
+
+heart_df |>
+  select(c(Age, RestingBP, Cholesterol, FastingBS, MaxHR, Oldpeak)) |>
+  describe()
+
+heart_df |>
+  select(c(Age, RestingBP, Cholesterol, FastingBS, MaxHR, Oldpeak)) |>
+  pairs()
+  
+heart_df |>
+  group_by(HeartDisease, Sex) |>
+  summarize(count = n()) |>
+  pivot_wider(names_from = Sex, values_from = count)
+
+heart_df |>
+  group_by(HeartDisease, ChestPainType) |>
+  summarize(count = n()) |>
+  pivot_wider(names_from = ChestPainType, values_from = count)
+
+heart_df |>
+  group_by(HeartDisease, RestingECG) |>
+  summarize(count = n()) |>
+  pivot_wider(names_from = RestingECG, values_from = count)
+
+heart_df |>
+  group_by(HeartDisease, ExerciseAngina) |>
+  summarize(count = n()) |>
+  pivot_wider(names_from = ExerciseAngina, values_from = count)
+
+heart_df |>
+  group_by(HeartDisease, ST_Slope) |>
+  summarize(count = n()) |>
+  pivot_wider(names_from = ST_Slope, values_from = count)
+
+heart_vars<-heart_df |>
+  mutate( , HeartDisease_factor = as.factor(HeartDisease)) |>
+  select(!c(ST_Slope, HeartDisease)) 
+
+dummies<-data.frame(matrix(ncol=0,nrow=0))
+dummy<-dummyVars(as.factor(HeartDisease)~ Sex + ExerciseAngina + ChestPainType + RestingECG, data = heart_df) 
+predict(dummies, newdata = dummies)
+
+heart_vars
+```
+
