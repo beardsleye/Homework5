@@ -1,0 +1,11 @@
+---
+title: "caretPackage"
+format: html
+---
+
+# Task 1
+1. We cross validate to ensure accuracy when fitting the model with random forest model. There for allowing us to find the best subset of predictors.
+2. First, you create a boot strap sample. Next, train the tree on this sample. Then, repeat this 10,000 times. Lastly, average across the trees to decrease variance. Then, use the OOB observations to find a prediction error.
+3. A general linear model is used for a continuous response that allows for both continuous and categorical predictors.
+4. Allowing an interaction term allows for relationships between variables to be accounted for in the model.
+5. We split our data into the train and test set to properly fit our model. The training set is for fitting the model, where the test set is to test the performance of the fit.
