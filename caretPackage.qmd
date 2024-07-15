@@ -72,10 +72,12 @@ dummy_vars
 
 #Remove ST_Slope variables
 dummy_vars<-dummy_vars |>
-  select(!c(starts_with("ST_Slope")))
+  select(!c(Age, RestingBP, Cholesterol, MaxHR, FastingBS, Oldpeak))
 
 #Create tibble with all variables
-heart_vars<-cbind("HeartDisease"=heart_df$HeartDisease, dummy_vars)
+heart_vars<-cbind(heart_df, dummy_vars)
+heart_vars<-heart_vars |>
+  select(!c(starts_with("ST_Slope")))
 heart_vars
 ```
 ##Split data and KNN
@@ -93,72 +95,92 @@ heart_test<-heart_vars[test, ]
 
 #do KNN
 knn_fit<-train(HeartDisease~Age+RestingBP+Cholesterol+FastingBS+MaxHR+Oldpeak, data=heart_train,
+               method= "knn",
                trControl=trainControl(method = "repeatedcv", number = 10, repeats = 3),
                tuneGrid=expand.grid(k=seq(from = 1, to = 40, by = 1)))
 
 #confusion matrix
 test_pred<-predict(knn_fit, newdata=heart_test)
-confusionMatrix(test_pred, heart_test$HeartDisease)
+knn_confusion<-confusionMatrix(test_pred, heart_test$HeartDisease)
+knn_confusion
+knn_accuarcy<-knn_confusion$overall["Accuracy"]
+
 ```
 ## Logistic Regression
-```{r}
+```{r Logistic}
 #Select 3 different logistic regressions using EDA as insight
-glm1_fit<-train(HeartDisease~., data=heart_train, method= "glm", family="binomial",trControl=trainControl(method = "repeatedcv", number = 10, repeats = 3),
-               tuneGrid=expand.grid(k=seq(from = 1, to = 40, by = 1)))
+glm1_fit<-train(HeartDisease~., data=heart_train[,1:11], method= "glm", family="binomial",trControl=trainControl(method = "repeatedcv", number = 10, repeats = 3))
 
-glm2_fit<-train(HeartDisease~.+Age:MaxHR, data=heart_train, method= "glm", family="binomial",trControl=trainControl(method = "repeatedcv", number = 10, repeats = 3),
-               tuneGrid=expand.grid(k=seq(from = 1, to = 40, by = 1)))
+glm2_fit<-train(HeartDisease~.+Age:MaxHR, data=heart_train[,1:11], method= "glm", family="binomial",trControl=trainControl(method = "repeatedcv", number = 10, repeats = 3))
 
-glm3_fit<-train(HeartDisease~.+SexM:Cholesterol, data=heart_train, method= "glm", family="binomial",trControl=trainControl(method = "repeatedcv", number = 10, repeats = 3),
-               tuneGrid=expand.grid(k=seq(from = 1, to = 40, by = 1)))
+glm3_fit<-train(HeartDisease~.+Sex:Cholesterol, data=heart_train[,1:11], method= "glm", family="binomial",trControl=trainControl(method = "repeatedcv", number = 10, repeats = 3))
+
+summary_glm1<-summary(glm1_fit)
+summary_glm2<-summary(glm2_fit)
+summary_glm3<-summary(glm3_fit)
 
 #create table of results to find best model
-results<-rbind(c("glm1", glm1_fit$results[c("RMSE", "Rsquared", "MAE")]),
-               c("glm2", glm2_fit$results[c("RMSE", "Rsquared", "MAE")]),
-               c("glm3", glm3_fit$results[c("RMSE", "Rsquared", "MAE")]))
+results<-rbind(c("glm1", summary_glm1$aic),
+               c("glm2", summary_glm2$aic),
+               c("glm3", summary_glm3$aic))
 
 results
 
-#print summary of best model
-best_model_summary<-summary()
-best_model_summary
+#print summary of best model (model 1 has lowest aic)
+summary_glm1
 
 #confusion matrix for best model
-test_pred_glm<-predict(, newdata=heart_test)
-confusionMatrix(test_pred_glm, heart_test$HeartDisease)
+test_pred_glm<-predict(glm1_fit, newdata=heart_test)
+best_glm_confusion<-confusionMatrix(test_pred_glm, heart_test$HeartDisease)
+best_glm_confusion
+glm_accuracy<-best_glm_confusion$overall["Accuracy"]
 ```
 ## Tree Models
-```{r}
-library(tree)
+```{r Tree Models}
+library(randomForest)
+library("gbm")
 #classification trees
-class_tree<-train(HeartDisease~., data=heart_train, method="rpart",
+class_tree<-train(HeartDisease~., data=heart_train[,1:11], method="rpart",
                   trControl=trainControl(method = "cv", number = 10),
                   tuneGrid=expand.grid(cp = seq(0, 0.1, by = 0.001)))
 
 #random forest
-random_forest<-train(HeartDisease~., data=heart_train, method="rf",
+random_forest<-train(HeartDisease~., data=heart_train[,1:11], method="rf",
                   trControl=trainControl(method = "cv", number = 10),
-                  tuneGrid=expand.grid(mtry = 1:ncol(heart_train)-1))
+                  tuneGrid=expand.grid(mtry =c(1:10)))
 
 #boosted tree
-boost_tree<-train(HeartDisease~., data=heart_train, method="gmb", n.trees= c(25,50,100,200),
+boost_tree<-train(HeartDisease~., data=heart_train[,1:11], method="gbm",
+trControl=trainControl(method = "cv", number = 10),
+                  tuneGrid=expand.grid(
+                  n.trees= c(25,50,100,200),
                   interaction.depth=c(1,2,3),
-                  shirinkage=.1,
-                  nminobinssode=10,
-                  trControl=trainControl(method = "cv", number = 10), verbose = FALSE,
-                  tuneGrid=expand.grid())
+                  shrinkage=.1,
+                  n.minobsinnode=10), verbose=FALSE)
 
 #classification trees confusion matrix
-test_pred_class<-predict(, newdata=heart_test)
-confusionMatrix(test_pred_class, heart_test$HeartDisease)
+test_pred_class<-predict(class_tree, newdata=heart_test)
+class_confusion<-confusionMatrix(test_pred_class, heart_test$HeartDisease)
+class_confusion
+class_accuracy<-class_confusion$overall["Accuracy"]
 
 #random forest confusion matrix
-test_pred_rf<-predict(, newdata=heart_test)
-confusionMatrix(test_pred_rf, heart_test$HeartDisease)
+test_pred_rf<-predict(random_forest, newdata=heart_test)
+rf_confusion<-confusionMatrix(test_pred_rf, heart_test$HeartDisease)
+rf_confusion
+rf_accuracy<-rf_confusion$overall["Accuracy"]
 
 #boosted trees confusion matrix
-test_pred_bf<-predict(, newdata=heart_test)
-confusionMatrix(test_pred_bf, heart_test$HeartDisease)
-
+test_pred_bt<-predict(boost_tree, newdata=heart_test)
+bt_confusion<-confusionMatrix(test_pred_bt, heart_test$HeartDisease)
+bt_confusion
+bt_accuracy<-bt_confusion$overall["Accuracy"]
 ```
 
+# Wrap
+Looking at each methods accuracy to see best model on test set.
+```{r Accuracy}
+accuracy<-c("KNN"=knn_accuarcy,"Logistic"=glm_accuracy,"Classification Tree"=class_accuracy,"Random Forest"=rf_accuracy, "Boosted Tree"=bt_accuracy)
+accuracy
+```
+Therefor Random Forest did the best as it had the highest accuracy.
