@@ -92,7 +92,73 @@ heart_train<-heart_vars[train, ]
 heart_test<-heart_vars[test, ]
 
 #do KNN
-knn_fit<-train(HeartDisease~Age+RestingBP+Cholesterol+FastingBS+MaxHR+Oldpeak, data=heart_train, tuneGrid=expand.grid(k=c(1:40)),
-               trControl=trainControl(method = "repeatedcv", number = 10, repeats = 3))
+knn_fit<-train(HeartDisease~Age+RestingBP+Cholesterol+FastingBS+MaxHR+Oldpeak, data=heart_train,
+               trControl=trainControl(method = "repeatedcv", number = 10, repeats = 3),
+               tuneGrid=expand.grid(k=seq(from = 1, to = 40, by = 1)))
+
+#confusion matrix
+test_pred<-predict(knn_fit, newdata=heart_test)
+confusionMatrix(test_pred, heart_test$HeartDisease)
+```
+## Logistic Regression
+```{r}
+#Select 3 different logistic regressions using EDA as insight
+glm1_fit<-train(HeartDisease~., data=heart_train, method= "glm", family="binomial",trControl=trainControl(method = "repeatedcv", number = 10, repeats = 3),
+               tuneGrid=expand.grid(k=seq(from = 1, to = 40, by = 1)))
+
+glm2_fit<-train(HeartDisease~.+Age:MaxHR, data=heart_train, method= "glm", family="binomial",trControl=trainControl(method = "repeatedcv", number = 10, repeats = 3),
+               tuneGrid=expand.grid(k=seq(from = 1, to = 40, by = 1)))
+
+glm3_fit<-train(HeartDisease~.+SexM:Cholesterol, data=heart_train, method= "glm", family="binomial",trControl=trainControl(method = "repeatedcv", number = 10, repeats = 3),
+               tuneGrid=expand.grid(k=seq(from = 1, to = 40, by = 1)))
+
+#create table of results to find best model
+results<-rbind(c("glm1", glm1_fit$results[c("RMSE", "Rsquared", "MAE")]),
+               c("glm2", glm2_fit$results[c("RMSE", "Rsquared", "MAE")]),
+               c("glm3", glm3_fit$results[c("RMSE", "Rsquared", "MAE")]))
+
+results
+
+#print summary of best model
+best_model_summary<-summary()
+best_model_summary
+
+#confusion matrix for best model
+test_pred_glm<-predict(, newdata=heart_test)
+confusionMatrix(test_pred_glm, heart_test$HeartDisease)
+```
+## Tree Models
+```{r}
+library(tree)
+#classification trees
+class_tree<-train(HeartDisease~., data=heart_train, method="rpart",
+                  trControl=trainControl(method = "cv", number = 10),
+                  tuneGrid=expand.grid(cp = seq(0, 0.1, by = 0.001)))
+
+#random forest
+random_forest<-train(HeartDisease~., data=heart_train, method="rf",
+                  trControl=trainControl(method = "cv", number = 10),
+                  tuneGrid=expand.grid(mtry = 1:ncol(heart_train)-1))
+
+#boosted tree
+boost_tree<-train(HeartDisease~., data=heart_train, method="gmb", n.trees= c(25,50,100,200),
+                  interaction.depth=c(1,2,3),
+                  shirinkage=.1,
+                  nminobinssode=10,
+                  trControl=trainControl(method = "cv", number = 10), verbose = FALSE,
+                  tuneGrid=expand.grid())
+
+#classification trees confusion matrix
+test_pred_class<-predict(, newdata=heart_test)
+confusionMatrix(test_pred_class, heart_test$HeartDisease)
+
+#random forest confusion matrix
+test_pred_rf<-predict(, newdata=heart_test)
+confusionMatrix(test_pred_rf, heart_test$HeartDisease)
+
+#boosted trees confusion matrix
+test_pred_bf<-predict(, newdata=heart_test)
+confusionMatrix(test_pred_bf, heart_test$HeartDisease)
+
 ```
 
