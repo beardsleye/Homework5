@@ -11,28 +11,34 @@ format: html
 5. We split our data into the train and test set to properly fit our model. The training set is for fitting the model, where the test set is to test the performance of the fit.
 
 # Task 2
-```{r}
+## EDA and Data Prep
+```{r EDA and data prep}
 library(readr)
 library(tidyverse)
 library(psych)
 library(caret)
 
+#read in data and make HeartDisease a factor
 heart <- read_csv("C:/Users/beard/Downloads/heart.csv")
 heart_df<-as_tibble(heart) |>
-  mutate( ,HeartDisease = as.character(HeartDisease))
+  mutate( ,HeartDisease = as.factor(HeartDisease))
 heart_df
 
+#Show missing counts, find none
 na_counts<- colSums(is.na(heart_df))
 na_counts
 
+#Summarize numeric variables
 heart_df |>
   select(c(Age, RestingBP, Cholesterol, FastingBS, MaxHR, Oldpeak)) |>
   describe()
 
+#Plot correlations between numeric variables
 heart_df |>
   select(c(Age, RestingBP, Cholesterol, FastingBS, MaxHR, Oldpeak)) |>
   pairs()
-  
+
+#Following looks at contingency tables of categorical variables and Heart Disease
 heart_df |>
   group_by(HeartDisease, Sex) |>
   summarize(count = n()) |>
@@ -58,14 +64,35 @@ heart_df |>
   summarize(count = n()) |>
   pivot_wider(names_from = ST_Slope, values_from = count)
 
-heart_vars<-heart_df |>
-  mutate( , HeartDisease_factor = as.factor(HeartDisease)) |>
-  select(!c(ST_Slope, HeartDisease)) 
+#Create dummy variables
+dummies<-dummyVars(HeartDisease~., data = heart_df) 
+dummy_vars<-predict(dummies, newdata = heart_df)
+dummy_vars<-as.data.frame(dummy_vars)
+dummy_vars
 
-dummies<-data.frame(matrix(ncol=0,nrow=0))
-dummy<-dummyVars(as.factor(HeartDisease)~ Sex + ExerciseAngina + ChestPainType + RestingECG, data = heart_df) 
-predict(dummies, newdata = dummies)
+#Remove ST_Slope variables
+dummy_vars<-dummy_vars |>
+  select(!c(starts_with("ST_Slope")))
 
+#Create tibble with all variables
+heart_vars<-cbind("HeartDisease"=heart_df$HeartDisease, dummy_vars)
 heart_vars
+```
+##Split data and KNN
+```{r Split and KNN}
+library(class)
+library(randomForest)
+set.seed(66)
+
+#create train and test sets
+train <- sample(1:nrow(heart_vars), size = nrow(heart_vars)*0.8)
+test <- setdiff(1:nrow(heart_vars), train)
+
+heart_train<-heart_vars[train, ]
+heart_test<-heart_vars[test, ]
+
+#do KNN
+knn_fit<-train(HeartDisease~Age+RestingBP+Cholesterol+FastingBS+MaxHR+Oldpeak, data=heart_train, tuneGrid=expand.grid(k=c(1:40)),
+               trControl=trainControl(method = "repeatedcv", number = 10, repeats = 3))
 ```
 
